@@ -1,7 +1,7 @@
 package com.vccorp.hethongthongtin.exception;
 
-public class ExistedException extends RuntimeException{
-    public ExistedException(String message){
+public class ConflictExcpetion extends RuntimeException{
+    public ConflictExcpetion(String message){
         super(message);
     }
 }

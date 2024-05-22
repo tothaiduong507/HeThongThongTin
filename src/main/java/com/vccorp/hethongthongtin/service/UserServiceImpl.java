@@ -2,12 +2,15 @@ package com.vccorp.hethongthongtin.service;
 
 import com.vccorp.hethongthongtin.dto.UserDto;
 import com.vccorp.hethongthongtin.entity.User;
+import com.vccorp.hethongthongtin.exception.ConflictExcpetion;
+import com.vccorp.hethongthongtin.exception.NotFoundException;
+import com.vccorp.hethongthongtin.exception.Response;
 import com.vccorp.hethongthongtin.form.UserCreateForm;
 import com.vccorp.hethongthongtin.form.UserUpdateForm;
 import com.vccorp.hethongthongtin.mapper.UserMapper;
 import com.vccorp.hethongthongtin.repository.UserRepository;
 import lombok.AllArgsConstructor;
-import lombok.Setter;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -18,56 +21,97 @@ import java.util.List;
 
 public class UserServiceImpl implements UserService{
     private UserRepository userRepository;
+
     @Override
-    public UserDto create(UserCreateForm form) {
+    public Response create(UserCreateForm form) {
         var user = UserMapper.mapToUser(form);
-        var savedUser = userRepository.save(user);
-        return UserMapper.mapToUserDto(savedUser);
+        if(!userRepository.existsByUserName(user.getUserName())){
+            var savedUser = userRepository.save(user);
+            List<User> users = new ArrayList<>();
+            users.add(savedUser);
+            return new Response(HttpStatus.OK, "Added user successfully", 200, UserMapper.mapToUserDtoList(users));
+
+        }
+        throw new ConflictExcpetion("Username already exists");
+    }
+
+
+//    @Override
+//    public UserDto create(UserCreateForm form) {
+//        var user = UserMapper.mapToUser(form);
+//        var savedUser = userRepository.save(user);
+//        return UserMapper.mapToUserDto(savedUser);
+//    }
+
+    @Override
+    public Response findById(Long id) {
+        var result = userRepository.findById(id);
+        if(result.isPresent()){
+            List<User> users = new ArrayList<>();
+            users.add(result.get());
+            return new Response(HttpStatus.FOUND,"User information", 200,UserMapper.mapToUserDtoList(users));
+        }
+        throw new NotFoundException("User does not exist in the system");
     }
 
     @Override
-    public UserDto findById(Long id) {
-        var user = userRepository.findById(id).get();
-        return UserMapper.mapToUserDto(user);
+    public Response findByUserName(String userName) {
+        var users = userRepository.findByUserName(userName);
+        if(!users.isEmpty()){
+            return new Response(HttpStatus.FOUND, "User information", 200, UserMapper.mapToUserDtoList(users));
+        }
+        throw new NotFoundException("Username cannot be found.");
     }
 
     @Override
-    public UserDto findByUserName(String userName) {
-        var user = userRepository.findByUserName(userName);
-        return UserMapper.mapToUserDto(user);
+    public Response findByFullName(String fullName) {
+        var users = userRepository.findByFullNameContaining(fullName);
+        if(!users.isEmpty()){
+            return new Response(HttpStatus.FOUND, "User information", 200, UserMapper.mapToUserDtoList(users));
+        }
+        throw new NotFoundException("Name cannot be found.");
     }
 
     @Override
-    public List<UserDto> findByFullName(String fullName) {
-        List<User> users = userRepository.findByFullName(fullName);
-        List<UserDto> dtos = UserMapper.mapToUserDtoList(users);
-        return dtos;
+    public Response findByAddressContaining(String address) {
+        var users = userRepository.findByAddressContaining(address);
+        if(!users.isEmpty()){
+            return new Response(HttpStatus.FOUND, "User information", 200, UserMapper.mapToUserDtoList(users));
+        }
+        throw new NotFoundException("Address cannot be found.");
     }
 
     @Override
-    public List<UserDto> findByAddressContaining(String address) {
-        List<User> users = userRepository.findByAddressContaining(address);
-        List<UserDto> dtos = UserMapper.mapToUserDtoList(users);
-        return dtos;
+    public Response findAllByOrderByFullNameAsc() {
+        var users = userRepository.findAllByOrderByFullNameAsc();
+        if(!users.isEmpty()){
+            return new Response(HttpStatus.FOUND, "Users information order by fullname: ", 200, UserMapper.mapToUserDtoList(users));
+        }
+        throw new NotFoundException("There is no user.");
     }
 
     @Override
-    public List<UserDto> findAllByOrderByFullNameAsc() {
-        List<User> users = userRepository.findAllByOrderByFullNameAsc();
-        List<UserDto> dtos = UserMapper.mapToUserDtoList(users);
-        return dtos;
+    public Response updateUser(UserUpdateForm form, Long id) {
+        if(userRepository.existsById(id)){
+            if(userRepository.existsByUserName(form.getUserName())){
+                throw new ConflictExcpetion("Username already exists");
+            }
+            var user = userRepository.findById(id).get();
+            UserMapper.updateUser(form, user);
+            var savedUser = userRepository.save(user);
+            List<User> users = new ArrayList<>();
+            users.add(savedUser);
+            return new Response(HttpStatus.OK, "Updated user successfully", 200, UserMapper.mapToUserDtoList(users));
+        }
+        throw new NotFoundException("ID not found");
     }
 
     @Override
-    public UserDto updateUser(UserUpdateForm form, Long id) {
-        var user = userRepository.findById(id).get();
-        UserMapper.updateUser(form, user);
-        var saveUser = userRepository.save(user);
-        return UserMapper.mapToUserDto(saveUser);
-    }
-
-    @Override
-    public void deleteById(Long id) {
+    public Response deleteById(Long id) {
+        if(!userRepository.existsById(id)){
+            return new Response(HttpStatus.OK, "There is no user with the provided id", 200);
+        }
         userRepository.deleteById(id);
+        return new Response(HttpStatus.OK, "User deleted successfully", 200);
     }
 }
